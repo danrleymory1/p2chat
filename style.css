@@ -22,6 +22,7 @@
     --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --vh: 1vh; /* Variável para altura dinâmica da viewport */
 }
 
 /* Reset e Estilos Base */
@@ -36,6 +37,8 @@ body {
     background-color: var(--gray-50);
     color: var(--gray-800);
     min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
 }
 
 .hidden {
@@ -44,18 +47,27 @@ body {
 
 .app-container {
     min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    position: relative;
 }
 
 /* Tela de Login */
 .login-screen {
     min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 10;
 }
 
 .login-container {
@@ -175,7 +187,13 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100);
     background-color: var(--gray-900);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 5;
 }
 
 .call-header {
@@ -186,6 +204,7 @@ body {
     background-color: var(--gray-800);
     color: white;
     box-shadow: var(--shadow);
+    z-index: 20;
 }
 
 .room-info {
@@ -276,6 +295,8 @@ body {
     position: relative;
     gap: 1rem;
     padding: 1rem;
+    height: calc(var(--vh, 1vh) * 100 - 140px); /* Ajusta a altura: 100vh - (altura do header + altura dos controles) */
+    overflow: hidden;
 }
 
 .video-grid.has-remote {
@@ -325,12 +346,18 @@ video {
 /* Chat Sidebar */
 .chat-sidebar {
     width: 320px;
+    max-width: 100%;
     background-color: var(--gray-800);
     color: white;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--gray-700);
     transition: transform 0.3s ease;
+    height: calc(var(--vh, 1vh) * 100 - 60px); /* Ajusta altura: 100vh - altura do header */
+    position: absolute;
+    top: 60px; /* Altura do header */
+    right: 0;
+    z-index: 15;
 }
 
 .chat-sidebar.hidden {
@@ -442,6 +469,7 @@ video {
     padding: 1rem;
     background-color: var(--gray-800);
     border-top: 1px solid var(--gray-700);
+    z-index: 20;
 }
 
 .control-btn {
@@ -472,8 +500,15 @@ video {
     background-color: var(--danger-dark);
 }
 
+/* Estado ativo dos botões de controle */
 .control-btn.active {
     background-color: var(--primary);
+    color: white;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+.control-btn.active:hover {
+    background-color: var(--primary-dark);
 }
 
 .control-btn.disabled {
@@ -522,7 +557,8 @@ video {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
     background-color: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
@@ -652,6 +688,32 @@ video {
     }
 }
 
+/* Estilos para botão de desfoque de fundo */
+#toggleBlurBtn {
+    position: relative;
+}
+
+#toggleBlurBtn .btn-tooltip {
+    width: max-content;
+}
+
+/* Estilo para vídeo desfocado */
+.blur-background video {
+    filter: blur(8px);
+}
+
+.focus-face {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    z-index: 2;
+}
+
 /* Responsividade */
 @media (max-width: 768px) {
     .call-header {
@@ -670,26 +732,29 @@ video {
         grid-template-columns: 1fr !important;
         gap: 0.5rem;
         padding: 0.5rem;
+        height: calc(var(--vh, 1vh) * 100 - 160px); /* Ajusta para telas menores */
     }
     
     .chat-sidebar {
         position: fixed;
         top: 0;
         right: 0;
-        height: 100%;
+        height: calc(var(--vh, 1vh) * 100);
         z-index: 100;
         width: 100%;
         max-width: 320px;
     }
     
     .call-controls {
-        gap: 0.25rem;
+        gap: 0.5rem;
         padding: 0.75rem;
+        flex-wrap: wrap;
     }
     
     .control-btn {
         width: 3rem;
         height: 3rem;
+        font-size: 1.1rem;
     }
     
     .btn-tooltip {
@@ -703,7 +768,7 @@ video {
     }
     
     .video-card {
-        min-height: 200px;
+        min-height: 180px;
     }
     
     .chat-sidebar {
@@ -719,5 +784,9 @@ video {
         width: 2.75rem;
         height: 2.75rem;
         font-size: 1rem;
+    }
+    
+    .video-grid {
+        height: calc(var(--vh, 1vh) * 100 - 180px); /* Ajusta para telas muito pequenas */
     }
 }

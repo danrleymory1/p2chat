@@ -1,10 +1,9 @@
 import * as http from 'http';
 import * as path from 'path';
 import express from 'express';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { randomUUID } from 'crypto';
 
-// Interfaces
 interface User {
     id: string;
     name: string;
@@ -16,7 +15,6 @@ interface Room {
     users: Map<string, User>;
 }
 
-// Classe do servidor de sinalização com suporte HTTP
 class SignalingServer {
     private server: http.Server;
     private app: express.Express;
@@ -26,293 +24,218 @@ class SignalingServer {
 
     constructor(port: number = 8080) {
         this.port = port;
-        
-        // Configurar Express
         this.app = express();
-        
-        // Servir arquivos estáticos da pasta 'dist'
-        this.app.use(express.static(path.join(__dirname)));
-        
-        // Rota para a página inicial
+
+        const publicPath = path.join(__dirname, 'public');
+        this.app.use(express.static(publicPath));
         this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, 'index.html'));
+            res.sendFile(path.join(publicPath, 'index.html'));
         });
-        
-        // Criar servidor HTTP baseado no Express
+
         this.server = http.createServer(this.app);
-        
-        // Configurar WebSocket Server no mesmo servidor HTTP
         this.wss = new WebSocketServer({ server: this.server });
-        
         this.setupWebSocketServer();
     }
 
     private setupWebSocketServer(): void {
         this.wss.on('connection', (ws: WebSocket) => {
-            console.log('Nova conexão WebSocket estabelecida');
+            let currentUserId: string | null = null;
+            let currentRoomId: string | null = null;
 
-            // Variáveis para acompanhar o usuário e sala
-            let currentUser: User | null = null;
-            let currentRoom: Room | null = null;
-
-            // Processar mensagens recebidas
-            ws.addEventListener('message', (event) => {
+            ws.on('message', (rawData: RawData) => {
                 try {
-                    const data = JSON.parse(event.data.toString());
-                    this.handleMessage(data, ws, currentUser, currentRoom);
-                    
-                    // Atualizar referências de usuário e sala após processamento
-                    if (data.type === 'join') {
-                        const roomId = data.roomId;
-                        if (this.rooms.has(roomId)) {
-                            currentRoom = this.rooms.get(roomId)!;
-                            currentUser = currentRoom.users.get(data.user.id) || null;
-                        }
+                    const messageString = rawData.toString();
+                    const message = JSON.parse(messageString);
+                    if (message.type === 'join' && message.user && message.user.id && message.roomId) {
+                        currentUserId = message.user.id;
+                        currentRoomId = message.roomId;
                     }
+                    this.handleMessage(message, ws);
                 } catch (error) {
-                    console.error('Erro ao processar mensagem:', error);
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format or server error' }));
                 }
             });
 
-            // Lidar com desconexão
-            ws.addEventListener('close', () => {
-                if (currentUser && currentRoom) {
-                    this.handleUserDisconnect(currentUser, currentRoom);
+            ws.on('close', () => {
+                if (currentUserId && currentRoomId) {
+                    const room = this.rooms.get(currentRoomId);
+                    const user = room?.users.get(currentUserId);
+                    if (room && user) {
+                        this.handleUserDisconnect(user, room);
+                    }
                 }
+                currentUserId = null;
+                currentRoomId = null;
             });
 
-            // Lidar com erros
-            ws.addEventListener('error', (error) => {
-                console.error('Erro na conexão WebSocket:', error);
-                if (currentUser && currentRoom) {
-                    this.handleUserDisconnect(currentUser, currentRoom);
-                }
-            });
+            ws.on('error', (error) => {});
         });
     }
 
-    private handleMessage(data: any, ws: WebSocket, currentUser: User | null, currentRoom: Room | null): void {
-        switch (data.type) {
+    private handleMessage(message: any, ws: WebSocket): void {
+        const { type, roomId, userId } = message;
+        if (!type) return;
+        const room = roomId ? this.rooms.get(roomId) : null;
+        switch (type) {
             case 'join':
-                this.handleJoinRoom(data, ws);
+                this.handleJoinRoom(message, ws);
                 break;
-            
             case 'offer':
-                this.relayOfferToRecipient(data);
-                break;
-            
             case 'answer':
-                this.relayAnswerToRecipient(data);
-                break;
-            
             case 'ice_candidate':
-                this.relayIceCandidateToRecipient(data);
-                break;
-            
             case 'chat_message':
-                this.relayMessageToRecipient(data);
+                if (!room || !userId) return;
+                this.relayToOthersInRoom(message, room, userId);
                 break;
-            
             default:
-                console.warn('Tipo de mensagem desconhecido:', data.type);
+                ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${type}` }));
+        }
+    }
+
+    private relayToOthersInRoom(originalMessage: any, room: Room, senderId: string): void {
+        const messageToRelay: any = {
+            type: originalMessage.type,
+            senderId: senderId,
+            roomId: room.id
+        };
+        if (originalMessage.type === 'offer' && originalMessage.offer) {
+            messageToRelay.offer = originalMessage.offer;
+        } else if (originalMessage.type === 'answer' && originalMessage.answer) {
+            messageToRelay.answer = originalMessage.answer;
+        } else if (originalMessage.type === 'ice_candidate' && originalMessage.candidate !== undefined) {
+            messageToRelay.candidate = originalMessage.candidate;
+        } else if (originalMessage.type === 'chat_message' && originalMessage.encrypted) {
+            messageToRelay.encrypted = originalMessage.encrypted;
+        } else if (originalMessage.payload &&
+                   (originalMessage.type === 'offer' ||
+                    originalMessage.type === 'answer' ||
+                    originalMessage.type === 'ice_candidate' ||
+                    originalMessage.type === 'chat_message')) {
+            if (originalMessage.type === 'offer') messageToRelay.offer = originalMessage.payload;
+            else if (originalMessage.type === 'answer') messageToRelay.answer = originalMessage.payload;
+            else if (originalMessage.type === 'ice_candidate') messageToRelay.candidate = originalMessage.payload;
+            else if (originalMessage.type === 'chat_message') messageToRelay.encrypted = originalMessage.payload;
+        } else if (originalMessage.payload) {
+            messageToRelay.payload = originalMessage.payload;
+        }
+        for (const [targetUserId, targetUser] of room.users) {
+            if (targetUserId !== senderId) {
+                if (targetUser.ws.readyState === WebSocket.OPEN) {
+                    try {
+                        targetUser.ws.send(JSON.stringify(messageToRelay));
+                    } catch (e) {}
+                }
+            }
         }
     }
 
     private handleJoinRoom(data: any, ws: WebSocket): void {
         const { roomId, user } = data;
-        
-        // Criar novo usuário
+        if (!roomId || !user || !user.id || !user.name) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid join data' }));
+            return;
+        }
         const newUser: User = {
             id: user.id,
             name: user.name,
             ws: ws
         };
-        
-        // Verificar se a sala já existe, caso contrário, criar
-        if (!this.rooms.has(roomId)) {
-            this.createRoom(roomId);
+        let room = this.rooms.get(roomId);
+        let isNewRoom = false;
+        if (!room) {
+            room = this.createRoom(roomId);
+            isNewRoom = true;
         }
-        
-        const room = this.rooms.get(roomId)!;
-        
-        // Adicionar usuário à sala
-        room.users.set(user.id, newUser);
-        
-        // Informar ao usuário que ele entrou na sala
-        const isFirstUser = room.users.size === 1;
+        const existingUser = room.users.get(user.id);
+        if (existingUser) {
+            existingUser.ws = ws;
+            console.log(`[JOIN] Usuário já existia. id: ${user.id}`);
+        } else {
+            room.users.set(user.id, newUser);
+            console.log(`[JOIN] Novo usuário adicionado. id: ${user.id}`);
+        }
+        const isInitiatorForClient = isNewRoom || room.users.size === 1;
         ws.send(JSON.stringify({
             type: 'room_joined',
-            isInitiator: isFirstUser
+            roomId: roomId,
+            isInitiator: isInitiatorForClient,
         }));
-        
-        // Notificar outros participantes da sala
-        this.notifyUserJoined(newUser, room);
-        
-        console.log(`Usuário ${user.name} entrou na sala ${roomId}`);
-    }
-
-    private createRoom(roomId: string): void {
-        this.rooms.set(roomId, {
-            id: roomId,
-            users: new Map()
-        });
-        
-        console.log(`Nova sala criada: ${roomId}`);
-    }
-
-    private notifyUserJoined(newUser: User, room: Room): void {
-        // Informar ao novo usuário sobre os outros participantes
-        for (const [userId, user] of room.users) {
-            // Não enviar para o próprio usuário
-            if (userId !== newUser.id) {
-                // Informar ao novo usuário sobre esse participante
-                newUser.ws.send(JSON.stringify({
-                    type: 'user_joined',
-                    user: {
-                        id: user.id,
-                        name: user.name
-                    }
-                }));
-                
-                // Informar a esse participante sobre o novo usuário
-                user.ws.send(JSON.stringify({
-                    type: 'user_joined',
-                    user: {
-                        id: newUser.id,
-                        name: newUser.name
-                    }
-                }));
+        for (const [otherUserId, otherUser] of room.users) {
+            if (otherUser.id !== newUser.id) {
+                if (otherUser.ws.readyState === WebSocket.OPEN) {
+                    otherUser.ws.send(JSON.stringify({
+                        type: 'user_joined',
+                        user: { id: newUser.id },
+                        roomId: roomId
+                    }));
+                    console.log(`[NOTIFY] Notificado user ${otherUser.id} sobre entrada de ${newUser.id}`);
+                }
+                if (newUser.ws.readyState === WebSocket.OPEN && !existingUser) {
+                    newUser.ws.send(JSON.stringify({
+                        type: 'user_joined',
+                        user: { id: otherUser.id },
+                        roomId: roomId
+                    }));
+                    console.log(`[NOTIFY] Notificado user ${newUser.id} sobre user existente ${otherUser.id}`);
+                }
             }
         }
+    }
+
+    private createRoom(roomId: string): Room {
+        const newRoom: Room = {
+            id: roomId,
+            users: new Map()
+        };
+        this.rooms.set(roomId, newRoom);
+        return newRoom;
     }
 
     private handleUserDisconnect(user: User, room: Room): void {
-        // Remover usuário da sala
-        room.users.delete(user.id);
-        
-        console.log(`Usuário ${user.name} saiu da sala ${room.id}`);
-        
-        // Notificar outros participantes
-        for (const [_, remainingUser] of room.users) {
-            remainingUser.ws.send(JSON.stringify({
-                type: 'user_left',
-                userId: user.id
-            }));
+        if (!room.users.has(user.id)) {
+            return;
         }
-        
-        // Se não houver mais usuários, remover a sala
+        room.users.delete(user.id);
+        for (const [_remainingUserId, remainingUser] of room.users) {
+            if (remainingUser.ws.readyState === WebSocket.OPEN) {
+                remainingUser.ws.send(JSON.stringify({
+                    type: 'user_left',
+                    userId: user.id,
+                    roomId: room.id
+                }));
+            }
+        }
         if (room.users.size === 0) {
             this.rooms.delete(room.id);
-            console.log(`Sala ${room.id} removida (sem participantes)`);
-        }
-    }
-
-    private relayOfferToRecipient(data: any): void {
-        const { roomId, userId, offer } = data;
-        
-        if (this.rooms.has(roomId)) {
-            const room = this.rooms.get(roomId)!;
-            
-            // Enviar oferta para todos os outros usuários na sala
-            for (const [otherUserId, otherUser] of room.users) {
-                if (otherUserId !== userId) {
-                    otherUser.ws.send(JSON.stringify({
-                        type: 'offer',
-                        offer: offer,
-                        userId: userId
-                    }));
-                }
-            }
-        }
-    }
-
-    private relayAnswerToRecipient(data: any): void {
-        const { roomId, userId, answer } = data;
-        
-        if (this.rooms.has(roomId)) {
-            const room = this.rooms.get(roomId)!;
-            
-            // Enviar resposta para todos os outros usuários na sala
-            for (const [otherUserId, otherUser] of room.users) {
-                if (otherUserId !== userId) {
-                    otherUser.ws.send(JSON.stringify({
-                        type: 'answer',
-                        answer: answer,
-                        userId: userId
-                    }));
-                }
-            }
-        }
-    }
-
-    private relayIceCandidateToRecipient(data: any): void {
-        const { roomId, userId, candidate } = data;
-        
-        if (this.rooms.has(roomId)) {
-            const room = this.rooms.get(roomId)!;
-            
-            // Enviar candidato ICE para todos os outros usuários na sala
-            for (const [otherUserId, otherUser] of room.users) {
-                if (otherUserId !== userId) {
-                    otherUser.ws.send(JSON.stringify({
-                        type: 'ice_candidate',
-                        candidate: candidate,
-                        userId: userId
-                    }));
-                }
-            }
-        }
-    }
-
-    private relayMessageToRecipient(data: any): void {
-        const { roomId, userId, encrypted } = data;
-        
-        if (this.rooms.has(roomId) && encrypted) {
-            const room = this.rooms.get(roomId)!;
-            
-            // Repassar mensagem criptografada para todos os outros usuários na sala
-            for (const [otherUserId, otherUser] of room.users) {
-                if (otherUserId !== userId) {
-                    otherUser.ws.send(JSON.stringify({
-                        type: 'chat_message',
-                        encrypted: encrypted,
-                        userId: userId
-                    }));
-                }
-            }
         }
     }
 
     public start(): void {
-        this.server.listen(this.port, () => {
-            console.log(`Servidor rodando na porta ${this.port}`);
-            console.log(`Acesse http://localhost:${this.port} para abrir a aplicação`);
-        });
+        this.server.listen(this.port);
     }
 
     public stop(): void {
+        this.wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.close();
+            }
+        });
         this.wss.close(() => {
-            this.server.close(() => {
-                console.log('Servidor encerrado');
-            });
+            this.server.close();
         });
     }
 }
 
-// Inicializar o servidor
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
-const server = new SignalingServer(PORT);
-server.start();
+const serverInstance = new SignalingServer(PORT);
+serverInstance.start();
 
-// Tratamento de sinais para encerramento limpo
 process.on('SIGINT', () => {
-    console.log('Recebido SIGINT. Encerrando o servidor...');
-    server.stop();
-    process.exit(0);
+    serverInstance.stop();
+    setTimeout(() => process.exit(0), 2000);
 });
 
 process.on('SIGTERM', () => {
-    console.log('Recebido SIGTERM. Encerrando o servidor...');
-    server.stop();
-    process.exit(0);
+    serverInstance.stop();
+    setTimeout(() => process.exit(0), 2000);
 });

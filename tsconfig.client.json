@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "ESNext", // ou CommonJS se seu cliente não for um módulo ES
+    "outDir": "./dist/public", // <<< IMPORTANTE
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    // ... outras opções
+    "sourceMap": true, // Útil para debugging
+    "lib": ["dom", "es2017"]
+  },
+  "include": [
+    "main.ts" // <<< Arquivo de entrada do cliente
+  ],
+  "exclude": [
+    "node_modules",
+    "server.ts" // Excluir o código do servidor
+  ]
+}

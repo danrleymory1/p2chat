@@ -1,10 +1,12 @@
 {
   "name": "p2chat",
   "version": "1.0.0",
-  "description": "Video chat application with end-to-end encryption",
-  "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "clean": "rimraf dist",
+    "build:server": "tsc -p tsconfig.json",
+    "build:client": "tsc -p tsconfig.client.json",
+    "copy:static": "cpx \"./index.html\" dist/public && cpx \"./style.css\" dist/public",
+    "build": "npm run clean && npm run build:server && npm run build:client && npm run copy:static",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
   },
@@ -25,6 +27,8 @@
     "@types/express": "^4.17.21",
     "@types/node": "^18.19.100",
     "@types/ws": "^8.18.1",
+    "cpx": "^1.5.0",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
