@@ -1,4 +1,4 @@
-FROM node:18-alpine as builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN npm ci --only=production
 # Copiar arquivos estáticos para a pasta dist
 COPY --from=builder /app/index.html ./dist/
 COPY --from=builder /app/style.css ./dist/
-COPY --from=builder /app/main.js ./dist/
+COPY --from=builder /app/main.ts ./dist/
 
 # Expor porta
 EXPOSE 8080
