@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as path from 'path';
-import * as express from 'express';
+import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 
