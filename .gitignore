@@ -1,0 +1,56 @@
+# .gitignore para projeto de videochamada P2P com E2EE
+
+# Dependências
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+
+# Arquivos compilados
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+
+# Exceções para os arquivos JavaScript iniciais
+!webpack.config.js
+!jest.config.js
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Arquivos de configuração IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Arquivos de log
+logs
+*.log
+
+# Arquivos de cobertura de testes
+coverage/
+
+# Arquivos temporários
+tmp/
+temp/
+
+# Certificados SSL (para desenvolvimento local)
+*.pem
+*.key
+*.crt
+
+# Docker
+.dockerignore
+
+# Dependências específicas do sistema operacional
+Thumbs.db
+.directory
