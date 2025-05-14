@@ -4,14 +4,14 @@ WORKDIR /app
 
 # Instalar dependências de desenvolvimento
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install
 
 # Copiar código fonte
 COPY . .
 
 # Criar a estrutura de diretórios esperada
 RUN mkdir -p src
-RUN cp *.ts src/ || true
+RUN cp server.ts src/ || true
 RUN cp *.html *.css ./ || true
 
 # Compilar TypeScript
@@ -33,9 +33,10 @@ RUN npm ci --only=production
 # Copiar arquivos estáticos para a pasta dist
 COPY --from=builder /app/index.html ./dist/
 COPY --from=builder /app/style.css ./dist/
+COPY --from=builder /app/main.js ./dist/
 
 # Expor porta
 EXPOSE 8080
 
 # Comando para iniciar o servidor
-CMD ["node", "dist/signaling-server.js"]
+CMD ["node", "dist/server.js"]

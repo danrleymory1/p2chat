@@ -1,13 +1,12 @@
 {
-  "name": "secure-chat-e2ee",
+  "name": "p2chat",
   "version": "1.0.0",
   "description": "Video chat application with end-to-end encryption",
-  "main": "dist/signaling-server.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/signaling-server.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/signaling-server.ts",
-    "compile-client": "tsc -p tsconfig.client.json"
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
   },
   "keywords": [
     "webrtc",
@@ -19,13 +18,15 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "ws": "^8.13.0"
+    "express": "^4.21.2",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
-    "@types/node": "^18.16.1",
-    "@types/ws": "^8.5.5",
-    "ts-node": "^10.9.1",
+    "@types/express": "^4.17.21",
+    "@types/node": "^18.19.100",
+    "@types/ws": "^8.18.1",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.8.3"
   }
 }

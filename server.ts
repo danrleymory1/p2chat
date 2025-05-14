@@ -1,4 +1,6 @@
 import * as http from 'http';
+import * as path from 'path';
+import * as express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 
@@ -14,17 +16,34 @@ interface Room {
     users: Map<string, User>;
 }
 
-// Classe do servidor de sinalização
+// Classe do servidor de sinalização com suporte HTTP
 class SignalingServer {
     private server: http.Server;
+    private app: express.Express;
     private wss: WebSocketServer;
     private rooms: Map<string, Room> = new Map();
     private port: number;
 
     constructor(port: number = 8080) {
         this.port = port;
-        this.server = http.createServer();
+        
+        // Configurar Express
+        this.app = express();
+        
+        // Servir arquivos estáticos da pasta 'dist'
+        this.app.use(express.static(path.join(__dirname)));
+        
+        // Rota para a página inicial
+        this.app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, 'index.html'));
+        });
+        
+        // Criar servidor HTTP baseado no Express
+        this.server = http.createServer(this.app);
+        
+        // Configurar WebSocket Server no mesmo servidor HTTP
         this.wss = new WebSocketServer({ server: this.server });
+        
         this.setupWebSocketServer();
     }
 
@@ -266,14 +285,15 @@ class SignalingServer {
 
     public start(): void {
         this.server.listen(this.port, () => {
-            console.log(`Servidor de sinalização rodando na porta ${this.port}`);
+            console.log(`Servidor rodando na porta ${this.port}`);
+            console.log(`Acesse http://localhost:${this.port} para abrir a aplicação`);
         });
     }
 
     public stop(): void {
         this.wss.close(() => {
             this.server.close(() => {
-                console.log('Servidor de sinalização encerrado');
+                console.log('Servidor encerrado');
             });
         });
     }
