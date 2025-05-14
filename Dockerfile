@@ -9,9 +9,13 @@ RUN npm ci
 # Copiar código fonte
 COPY . .
 
-# Compilar TypeScript para servidor e cliente
+# Criar a estrutura de diretórios esperada
+RUN mkdir -p src
+RUN cp *.ts src/ || true
+RUN cp *.html *.css ./ || true
+
+# Compilar TypeScript
 RUN npm run build
-RUN npm run compile-client
 
 # Stage de produção
 FROM node:18-alpine
@@ -26,10 +30,9 @@ COPY --from=builder /app/package-lock.json* ./
 # Instalar apenas dependências de produção
 RUN npm ci --only=production
 
-# Copiar arquivos estáticos do cliente
+# Copiar arquivos estáticos para a pasta dist
 COPY --from=builder /app/index.html ./dist/
 COPY --from=builder /app/style.css ./dist/
-COPY --from=builder /app/dist/main.js ./dist/
 
 # Expor porta
 EXPOSE 8080
