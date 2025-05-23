@@ -141,6 +141,19 @@ class SignalingServer {
             ws: ws
         };
         let room = this.rooms.get(roomId);
+
+        // ---- START NEW LOGIC ----
+        if (room && room.users.size >= 2 && !room.users.has(user.id)) {
+            ws.send(JSON.stringify({
+                type: 'room_full',
+                roomId: roomId,
+                message: 'This room is full.'
+            }));
+            console.log(`[REJECT] User ${user.id} rejected, room ${roomId} is full.`);
+            return; // Prevent user from joining
+        }
+        // ---- END NEW LOGIC ----
+
         let isNewRoom = false;
         if (!room) {
             room = this.createRoom(roomId);

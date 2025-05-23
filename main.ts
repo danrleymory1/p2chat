@@ -211,10 +211,11 @@ class SecureChat {
             }
 
             this.connectToSignalingServer();
-            this.updateRoomInfo();
-            this.showCallScreen();
-            this.showToast(`Conectado à sala "${roomId}" com sucesso!`, 'success');
-            this.showShareModal();
+            // UI transitions and room info updates are now handled in 'room_joined'
+            // this.updateRoomInfo(); // MOVED
+            // this.showCallScreen(); // MOVED
+            // this.showToast(`Conectado à sala "${roomId}" com sucesso!`, 'success'); // MOVED
+            // this.showShareModal(); // MOVED
 
         } catch (error) {
             this.showToast('Erro ao entrar na sala. Verifique o console para detalhes.', 'error');
@@ -278,6 +279,25 @@ class SecureChat {
                 if (!this.isInitiator) {
                     await this.initiatePeerConnection();
                 }
+                // ---- MOVED LOGIC ----
+                this.showCallScreen(); // Now called after successful join
+                this.showToast(`Conectado à sala "${this.roomId}" com sucesso!`, 'success');
+                this.showShareModal();
+                // ---- END MOVED LOGIC ----
+                break;
+
+            case 'room_full':
+                this.showToast(`A sala "${message.roomId}" está cheia. Não foi possível entrar.`, 'error');
+                this.elements.loginScreen?.classList.remove('hidden');
+                this.elements.callScreen?.classList.add('hidden');
+                if (this.socket) {
+                    this.socket.close();
+                    this.socket = null;
+                }
+                // Optional: Clear the room ID input
+                // if (this.elements.roomId) {
+                // (this.elements.roomId as HTMLInputElement).value = '';
+                // }
                 break;
 
             case 'user_joined':
@@ -1107,6 +1127,7 @@ class SecureChat {
     private showCallScreen(): void {
         this.elements.loginScreen?.classList.add('hidden');
         this.elements.callScreen?.classList.remove('hidden');
+        this.updateRoomInfo(); // Ensure room info is updated when showing call screen
         if(this.elements.chatMessages) this.elements.chatMessages.innerHTML = '';
         this.unreadMessages = 0;
         this.updateUnreadBadge();
