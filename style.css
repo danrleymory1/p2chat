@@ -16,6 +16,7 @@
     --gray-600: #4b5563;
     --gray-700: #374151;
     --gray-800: #1f2937;
+    --gray-850: #18202b; /* Added new color variable */
     --gray-900: #111827;
     --radius: 0.5rem;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -389,21 +390,22 @@ video {
 .chat-message {
     display: flex;
     flex-direction: column;
-    max-width: 85%;
-    padding: 0.75rem;
+    max-width: 90%; /* Prevent bubbles from becoming too wide */
+    padding: 0.85rem 1rem; /* Better internal spacing */
     border-radius: var(--radius);
     position: relative;
+    box-shadow: var(--shadow-sm); /* Slight lift */
 }
 
 .chat-message.incoming {
     background-color: var(--gray-700);
-    border-top-left-radius: 0;
+    border-radius: var(--radius) var(--radius) var(--radius) 0; /* Rounded top-left, top-right, bottom-right; sharp bottom-left for a "tail" */
     align-self: flex-start;
 }
 
 .chat-message.outgoing {
     background-color: var(--primary-dark);
-    border-top-right-radius: 0;
+    border-radius: var(--radius) var(--radius) 0 var(--radius); /* Rounded top-left, top-right, bottom-left; sharp bottom-right for a "tail" */
     align-self: flex-end;
 }
 
@@ -414,51 +416,69 @@ video {
     opacity: 0.8;
     width: fit-content;
     text-align: center;
+    padding: 0.5rem 0.75rem; /* Adequate padding */
 }
 
 .message-sender {
-    font-size: 0.75rem;
+    font-size: 0.8rem; /* Increased font size */
     font-weight: 600;
-    margin-bottom: 0.25rem;
-    color: var(--gray-300);
+    margin-bottom: 0.35rem; /* Adjusted margin */
+    color: var(--primary-light); /* Changed color */
 }
 
 .message-time {
-    font-size: 0.7rem;
+    font-size: 0.75rem; /* Increased font size */
     color: var(--gray-400);
-    margin-top: 0.25rem;
+    margin-top: 0.25rem; /* Adjusted margin */
     align-self: flex-end;
+}
+
+.chat-message.outgoing.sending {
+    opacity: 0.7;
+}
+
+.message-text {
+    word-break: break-word;
+    line-height: 1.4;
 }
 
 .chat-input-form {
     display: flex;
-    padding: 0.75rem;
-    gap: 0.5rem;
-    border-top: 1px solid var(--gray-700);
+    padding: 1rem; /* Increased padding */
+    gap: 0.75rem; /* Changed gap */
+    background-color: var(--gray-850); /* Added background color */
+    border-top: 1px solid var(--gray-700); /* Ensured border-top */
 }
 
-.chat-input-form input {
+.chat-input-form input, .chat-input-form textarea { /* Apply to textarea too */
     flex: 1;
-    padding: 0.75rem;
-    background-color: var(--gray-700);
-    border: none;
-    border-radius: var(--radius);
+    padding: 0.85rem 1rem; /* Increased padding */
+    background-color: var(--gray-700); /* Changed background-color */
+    border: 1px solid var(--gray-600); /* Added border */
+    border-radius: var(--radius); /* Ensured border-radius */
     color: white;
+    font-size: 0.95rem; /* Added font-size */
+    transition: height 0.2s ease; /* Added transition for smooth resizing */
+    resize: none; /* Added resize: none */
+    overflow-y: hidden; /* Added overflow-y: hidden */
+    height: auto; /* Added height: auto */
+    min-height: 44px; /* Added min-height */
 }
 
-.chat-input-form input:focus {
+.chat-input-form input:focus, .chat-input-form textarea:focus { /* Apply to textarea too */
     outline: none;
 }
 
 .send-btn {
     background-color: var(--primary);
     color: white;
-    padding: 0.5rem;
-    border-radius: var(--radius);
+    padding: 0.85rem; /* Increased padding */
+    border-radius: var(--radius); /* Ensured border-radius */
+    font-size: 1.1rem; /* Made icon slightly larger */
 }
 
 .send-btn:hover {
-    background-color: var(--primary-dark);
+    background-color: var(--primary-dark); /* Ensured hover background-color */
 }
 
 /* Controles da Chamada */
@@ -788,5 +808,28 @@ video {
     
     .video-grid {
         height: calc(var(--vh, 1vh) * 100 - 180px); /* Ajusta para telas muito pequenas */
+    }
+}
+
+/* Further adjustments for very small screens */
+@media (max-width: 359px) {
+    .chat-input-form {
+        padding: 0.75rem; /* Slightly reduce padding */
+        gap: 0.5rem; /* Slightly reduce gap */
+    }
+
+    .chat-input-form textarea {
+        padding: 0.75rem 0.85rem; /* Adjust padding */
+        font-size: 0.9rem; /* Adjust font size */
+        min-height: 40px; /* Adjust min-height */
+    }
+
+    .send-btn {
+        padding: 0.75rem; /* Reduce padding */
+        font-size: 1rem; /* Reduce icon size */
+    }
+
+    .chat-message {
+        padding: 0.75rem 0.85rem; /* Adjust bubble padding */
     }
 }

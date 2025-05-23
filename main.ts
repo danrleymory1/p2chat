@@ -48,7 +48,7 @@ class SecureChat {
     private blurCanvasInterval: number | null = null;
 
     // Elementos DOM
-    private elements: {[key: string]: HTMLElement | HTMLVideoElement | HTMLInputElement | HTMLButtonElement | null} = {
+    private elements: {[key: string]: HTMLElement | HTMLVideoElement | HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement | null} = { // Modified type
         loginScreen: null,
         callScreen: null,
         joinForm: null,
@@ -61,7 +61,7 @@ class SecureChat {
         chatSidebar: null,
         chatMessages: null,
         chatForm: null,
-        chatInput: null,
+        chatInput: null, // type will be HTMLTextAreaElement
         roomName: null,
         roomCode: null,
         copyCode: null,
@@ -102,7 +102,7 @@ class SecureChat {
             chatSidebar: document.getElementById('chatSidebar'),
             chatMessages: document.getElementById('chatMessages'),
             chatForm: document.getElementById('chatForm'),
-            chatInput: document.getElementById('chatInput') as HTMLInputElement,
+            chatInput: document.getElementById('chatInput') as HTMLTextAreaElement, // Cast to HTMLTextAreaElement
             roomName: document.getElementById('roomName'),
             roomCode: document.getElementById('roomCode'),
             copyCode: document.getElementById('copyCode'),
@@ -134,6 +134,7 @@ class SecureChat {
         this.elements.endCallBtn?.addEventListener('click', () => this.endCall());
         this.elements.closeChatBtn?.addEventListener('click', () => this.toggleChat());
         this.elements.chatForm?.addEventListener('submit', (e) => { e.preventDefault(); this.sendChatMessage(); });
+        this.elements.chatInput?.addEventListener('input', () => this.autoResizeChatInput());
         this.elements.copyCode?.addEventListener('click', () => this.copyRoomCode());
         this.elements.copyShareCode?.addEventListener('click', () => this.copyRoomCode());
         this.elements.closeShareModal?.addEventListener('click', () => this.hideShareModal());
@@ -598,45 +599,79 @@ class SecureChat {
     }
 
     private async sendChatMessage(): Promise<void> {
-        const inputElement = this.elements.chatInput as HTMLInputElement;
+        const inputElement = this.elements.chatInput as HTMLTextAreaElement; // Cast to HTMLTextAreaElement
         const text = inputElement.value.trim();
 
         if (!text) return;
 
-        inputElement.value = '';
-
+        // Create the message object first to get the timestamp
         const message: Message = {
             type: 'chat',
             sender: this.localUser!,
             content: {
                 text: text,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString() // Timestamp is crucial for the ID
             }
         };
 
-        this.displayChatMessage(message, true);
+        // Display message locally with 'sending' state
+        this.displayChatMessage(message, true, true); // Pass true for isSending
+        const messageId = 'msg-' + message.content.timestamp.replace(/\W/g, '');
+
+        inputElement.value = '';
+        this.autoResizeChatInput(); // Keep this
 
         try {
             if (this.dataChannel && this.dataChannel.readyState === 'open' && this.encryptionReady) {
                 const encrypted = await this.encryptMessage(message);
                 this.dataChannel.send(JSON.stringify(encrypted));
+                // Message sent successfully, remove 'sending' state
+                const sentMessageElement = document.getElementById(messageId);
+                sentMessageElement?.classList.remove('sending');
             } else if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 const encrypted = await this.encryptMessage(message);
                 this.sendSignalingMessage({
                     type: 'chat_message',
                     encrypted: encrypted
                 });
+                // Message sent via signaling, remove 'sending' state
+                const sentMessageElement = document.getElementById(messageId);
+                sentMessageElement?.classList.remove('sending');
             } else {
                 this.showToast('Falha ao enviar mensagem: sem conexão.', 'error');
+                const sentMessageElement = document.getElementById(messageId);
+                sentMessageElement?.classList.remove('sending');
+                // Optionally, add a 'failed' class: sentMessageElement?.classList.add('failed');
             }
         } catch (error) {
             this.showToast('Erro ao enviar mensagem de chat.', 'error');
+            const sentMessageElement = document.getElementById(messageId);
+            sentMessageElement?.classList.remove('sending');
+            // Optionally, add a 'failed' class: sentMessageElement?.classList.add('failed');
         }
     }
 
-    private displayChatMessage(message: Message, isOutgoing: boolean): void {
+    private autoResizeChatInput(): void {
+        const textarea = this.elements.chatInput as HTMLTextAreaElement;
+        if (textarea) {
+            textarea.style.height = 'auto'; // Reset height
+            const maxHeight = 120; // Max height in pixels (e.g., for about 5-6 lines)
+            
+            if (textarea.scrollHeight <= maxHeight) {
+                textarea.style.height = textarea.scrollHeight + 'px';
+                textarea.style.overflowY = 'hidden';
+            } else {
+                textarea.style.height = maxHeight + 'px';
+                textarea.style.overflowY = 'auto';
+            }
+        }
+    }
+
+    private displayChatMessage(message: Message, isOutgoing: boolean, isSending?: boolean): void {
         const messageContainer = document.createElement('div');
-        messageContainer.className = `chat-message ${isOutgoing ? 'outgoing' : 'incoming'}`;
+        const messageId = 'msg-' + message.content.timestamp.replace(/\W/g, ''); // Create a usable ID
+        messageContainer.id = messageId;
+        messageContainer.className = `chat-message ${isOutgoing ? 'outgoing' : 'incoming'} ${isSending ? 'sending' : ''}`;
 
         const timestamp = new Date(message.content.timestamp);
         const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
